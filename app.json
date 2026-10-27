@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Futebol",
+    "slug": "app-futebol",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "appfutebol",
+    "ios": {
+      "bundleIdentifier": "br.com.minanoideias.appfutebol",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "br.com.minanoideias.appfutebol",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#0b6e3d"
+      }
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "Futebol – Tabelas e Jogos",
+      "shortName": "Futebol",
+      "lang": "pt-BR",
+      "themeColor": "#0b6e3d",
+      "backgroundColor": "#f2f4f3",
+      "display": "standalone"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0b6e3d",
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "imageWidth": 220
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0b6e3d",
+          "enableRemoteNotifications": false
+        }
+      ]
+    ]
+  }
+}
