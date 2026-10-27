@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -7,16 +8,48 @@ import { MatchList } from '../components/MatchList';
 import { Content, Message, Screen, SectionTitle } from '../components/ui';
 import { useFavorites } from '../favorites';
 import type { RootStackParamList } from '../navigation';
+import { colors } from '../theme';
 import type { Match, TodayResponse } from '../types';
-import { View } from 'react-native';
+
+type TodayFilter = 'todos' | 'aovivo';
+
+type CompetitionGroup = {
+  key: string;
+  title: string;
+  matches: Match[];
+};
+
+function isFavoriteMatch(match: Match, isFav: (team: Match['casa']) => boolean): boolean {
+  return isFav(match.casa) || isFav(match.fora);
+}
 
 function sortToday(list: Match[], isFav: (team: Match['casa']) => boolean): Match[] {
   return [...list].sort((a, b) => {
-    const favA = isFav(a.casa) || isFav(a.fora) ? 0 : 1;
-    const favB = isFav(b.casa) || isFav(b.fora) ? 0 : 1;
+    const favA = isFavoriteMatch(a, isFav) ? 0 : 1;
+    const favB = isFavoriteMatch(b, isFav) ? 0 : 1;
     if (favA !== favB) return favA - favB;
     return String(a.data).localeCompare(String(b.data));
   });
+}
+
+function groupByCompetition(list: Match[], isFav: (team: Match['casa']) => boolean): CompetitionGroup[] {
+  const byKickoff = [...list].sort((a, b) => String(a.data).localeCompare(String(b.data)));
+  const groups: CompetitionGroup[] = [];
+  const byKey = new Map<string, CompetitionGroup>();
+  for (const match of byKickoff) {
+    const key = match.liga || match.competicao || 'outros';
+    const title = match.competicao || match.liga || 'Outros jogos';
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, title, matches: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.matches.push(match);
+  }
+  for (const group of groups) group.matches = sortToday(group.matches, isFav);
+  const favorite = (group: CompetitionGroup) => group.matches.some((match) => isFavoriteMatch(match, isFav));
+  return [...groups.filter(favorite), ...groups.filter((group) => !favorite(group))];
 }
 
 export default function TodayScreen() {
@@ -26,6 +59,7 @@ export default function TodayScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [filter, setFilter] = useState<TodayFilter>('todos');
 
   useFocusEffect(
     useCallback(() => {
@@ -67,13 +101,36 @@ export default function TodayScreen() {
     else navigation.navigate('Home');
   };
   const games = data?.jogos || [];
-  const live = sortToday(games.filter((match) => match.estado === 'in'), isFav);
-  const upcoming = sortToday(games.filter((match) => match.estado === 'pre'), isFav);
-  const finished = sortToday(games.filter((match) => match.estado === 'post'), isFav);
-  const empty = !!data && !live.length && !upcoming.length && !finished.length;
+  const liveCount = games.filter((match) => match.estado === 'in').length;
+  const visible = filter === 'aovivo' ? games.filter((match) => match.estado === 'in') : games;
+  const groups = groupByCompetition(visible, isFav);
+  const emptyAll = !!data && filter === 'todos' && games.length === 0;
+  const emptyLive = !!data && filter === 'aovivo' && liveCount === 0;
 
   return (
-    <Screen title="Hoje" onBack={back} testID="today-screen">
+    <Screen
+      title="Hoje"
+      onBack={back}
+      testID="today-screen"
+      tabs={
+        data ? (
+          <View style={styles.tabs}>
+            <FilterTab
+              label="Todos"
+              selected={filter === 'todos'}
+              testID="filter-todos"
+              onPress={() => setFilter('todos')}
+            />
+            <FilterTab
+              label={`Ao vivo (${liveCount})`}
+              selected={filter === 'aovivo'}
+              testID="filter-live"
+              onPress={() => setFilter('aovivo')}
+            />
+          </View>
+        ) : null
+      }
+    >
       {loading && !data ? <Message text="Carregando…" /> : null}
       {error && !data ? (
         <Message
@@ -85,27 +142,59 @@ export default function TodayScreen() {
       ) : null}
       {data ? (
         <Content>
-          {empty ? <Message text="Nenhum jogo hoje." /> : null}
-          {live.length ? (
-            <View testID="live-now">
-              <SectionTitle>Ao vivo agora</SectionTitle>
-              <MatchList matches={live} hideDay />
+          {emptyAll ? <Message text="Nenhum jogo hoje." /> : null}
+          {emptyLive ? (
+            <View testID="live-empty">
+              <Message text="Nenhum jogo ao vivo agora." />
             </View>
           ) : null}
-          {upcoming.length ? (
-            <View>
-              <SectionTitle>Hoje</SectionTitle>
-              <MatchList matches={upcoming} hideDay />
+          {groups.map((group) => (
+            <View key={group.key} testID={`hoje-grupo-${group.key}`}>
+              <SectionTitle>{group.title}</SectionTitle>
+              <MatchList matches={group.matches} hideDay />
             </View>
-          ) : null}
-          {finished.length ? (
-            <View>
-              <SectionTitle>Encerrados hoje</SectionTitle>
-              <MatchList matches={finished} hideDay />
-            </View>
-          ) : null}
+          ))}
         </Content>
       ) : null}
     </Screen>
   );
 }
+
+function FilterTab({
+  label,
+  selected,
+  testID,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  testID: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      style={styles.tab}
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected }}
+    >
+      <Text style={[styles.tabText, selected && styles.tabTextOn]}>{label}</Text>
+      <View style={[styles.underline, selected && styles.underlineOn]} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: '#dde2df',
+  },
+  tab: { flex: 1, alignItems: 'center', paddingTop: 10, paddingHorizontal: 8 },
+  tabText: { textAlign: 'center', color: colors.muted, fontWeight: '600', fontSize: 14, minHeight: 20 },
+  tabTextOn: { color: colors.green },
+  underline: { height: 3, alignSelf: 'stretch', marginTop: 8, backgroundColor: 'transparent' },
+  underlineOn: { backgroundColor: colors.green },
+});
