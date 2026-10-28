@@ -1,13 +1,19 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { loadMatches } from '../api';
 import { useFavorites } from '../favorites';
+import { recentForm, type ResultMark } from '../teamResults';
 import { card, colors } from '../theme';
-import type { StandingRow, Standings as StandingsData } from '../types';
+import type { MatchesResponse, StandingRow, Standings as StandingsData } from '../types';
 import { Crest } from './Crest';
+import { FormDots } from './FormDots';
 import { StarButton } from './StarButton';
 import { TeamLink } from './TeamLink';
 import { Message, SectionTitle } from './ui';
+
+const FORM_MIN_WIDTH = 360;
+const FORM_INDENT = 32 + 32 + 4;
 
 export function Standings({ data, leagueId }: { data: StandingsData; leagueId?: string }) {
   const { migrate } = useFavorites();
@@ -15,6 +21,8 @@ export function Standings({ data, leagueId }: { data: StandingsData; leagueId?: 
   const showExtra = width > 420;
   const groups = data.grupos || [];
   const empty = data.semTabela || !groups.length || groups.every((group) => !group.linhas.length);
+  const matches = useLeagueMatches(empty ? undefined : leagueId);
+  const showForm = width >= FORM_MIN_WIDTH && !!matches;
 
   useEffect(() => {
     migrate((data.grupos || []).flatMap((group) => group.linhas));
@@ -32,6 +40,10 @@ export function Standings({ data, leagueId }: { data: StandingsData; leagueId?: 
       if (row.nota) legend.set(row.nota.texto, row.nota.cor);
     }
   }
+  const hasForm =
+    !!matches &&
+    showForm &&
+    groups.some((group) => group.linhas.some((row) => !!row.time && recentForm(matches, row.time).length > 0));
 
   return (
     <View testID="standings">
@@ -44,7 +56,13 @@ export function Standings({ data, leagueId }: { data: StandingsData; leagueId?: 
           <View style={card}>
             <Header showExtra={showExtra} />
             {group.linhas.map((row) => (
-              <Row key={`${row.pos}-${row.time}`} row={row} showExtra={showExtra} leagueId={leagueId} />
+              <Row
+                key={`${row.pos}-${row.time}`}
+                row={row}
+                showExtra={showExtra}
+                leagueId={leagueId}
+                form={matches && showForm && row.time ? recentForm(matches, row.time) : []}
+              />
             ))}
           </View>
         </View>
@@ -59,7 +77,10 @@ export function Standings({ data, leagueId }: { data: StandingsData; leagueId?: 
           ))}
         </View>
       ) : null}
-      <Text style={styles.hint}>P = pontos · J = jogos · V/E/D = vitórias/empates/derrotas · SG = saldo de gols</Text>
+      <Text style={styles.hint}>
+        P = pontos · J = jogos · V/E/D = vitórias/empates/derrotas · SG = saldo de gols
+        {hasForm ? '\nForma: últimos jogos finalizados, mais recente à direita.' : ''}
+      </Text>
     </View>
   );
 }
@@ -81,29 +102,71 @@ function Header({ showExtra }: { showExtra: boolean }) {
   );
 }
 
-function Row({ row, showExtra, leagueId }: { row: StandingRow; showExtra: boolean; leagueId?: string }) {
+function Row({
+  row,
+  showExtra,
+  leagueId,
+  form,
+}: {
+  row: StandingRow;
+  showExtra: boolean;
+  leagueId?: string;
+  form: ResultMark[];
+}) {
   return (
-    <View style={styles.line}>
-      <Text style={[styles.posValue, { borderLeftColor: row.nota?.cor || 'transparent' }]}>{row.pos ?? ''}</Text>
-      <View style={styles.team}>
-        <StarButton team={row} />
-        <TeamLink liga={leagueId} team={row} style={styles.teamHit}>
-          <Crest uri={row.escudo} name={row.time} />
-          <Text numberOfLines={1} style={styles.teamName}>
-            {row.time}
-          </Text>
-        </TeamLink>
+    <View style={styles.entry}>
+      <View style={styles.line}>
+        <Text style={[styles.posValue, { borderLeftColor: row.nota?.cor || 'transparent' }]}>{row.pos ?? ''}</Text>
+        <View style={styles.team}>
+          <StarButton team={row} />
+          <TeamLink liga={leagueId} team={row} style={styles.teamHit}>
+            <Crest uri={row.escudo} name={row.time} />
+            <Text numberOfLines={1} style={styles.teamName}>
+              {row.time}
+            </Text>
+          </TeamLink>
+        </View>
+        <Text style={[styles.num, styles.ptsValue]}>{row.pts}</Text>
+        <Text style={styles.num}>{row.j}</Text>
+        <Text style={styles.num}>{row.v}</Text>
+        <Text style={styles.num}>{row.e}</Text>
+        <Text style={styles.num}>{row.d}</Text>
+        {showExtra ? <Text style={styles.num}>{row.gp}</Text> : null}
+        {showExtra ? <Text style={styles.num}>{row.gc}</Text> : null}
+        <Text style={[styles.num, styles.sg]}>{row.sg}</Text>
       </View>
-      <Text style={[styles.num, styles.ptsValue]}>{row.pts}</Text>
-      <Text style={styles.num}>{row.j}</Text>
-      <Text style={styles.num}>{row.v}</Text>
-      <Text style={styles.num}>{row.e}</Text>
-      <Text style={styles.num}>{row.d}</Text>
-      {showExtra ? <Text style={styles.num}>{row.gp}</Text> : null}
-      {showExtra ? <Text style={styles.num}>{row.gc}</Text> : null}
-      <Text style={[styles.num, styles.sg]}>{row.sg}</Text>
+      {form.length ? (
+        <View style={styles.formLine}>
+          <FormDots marks={form} />
+        </View>
+      ) : null}
     </View>
   );
+}
+
+function useLeagueMatches(leagueId?: string): MatchesResponse | null {
+  const [matches, setMatches] = useState<MatchesResponse | null>(null);
+
+  useEffect(() => {
+    if (!leagueId) {
+      setMatches(null);
+      return;
+    }
+    let alive = true;
+    setMatches(null);
+    loadMatches(leagueId)
+      .then((data) => {
+        if (alive) setMatches(data);
+      })
+      .catch(() => {
+        if (alive) setMatches(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [leagueId]);
+
+  return matches;
 }
 
 const styles = StyleSheet.create({
@@ -114,12 +177,19 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
     paddingRight: 4,
   },
+  entry: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
   line: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
     paddingRight: 4,
+  },
+  formLine: {
+    paddingLeft: FORM_INDENT,
+    paddingBottom: 8,
+    marginTop: -2,
   },
   cell: { width: 24, textAlign: 'center', color: colors.muted, fontSize: 11, fontWeight: '600', paddingVertical: 8 },
   pos: { width: 32 },
