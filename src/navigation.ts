@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Home: undefined;
   Today: undefined;
   Favorites: undefined;
+  MyTeams: undefined;
   Competition: { id: string };
   Match: { liga: string; id: string };
   Team: { liga: string; nome: string };
@@ -22,6 +23,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       Home: '',
       Today: 'hoje',
       Favorites: 'favoritos',
+      MyTeams: 'meus-times',
       Competition: 'competicao/:id',
       Match: 'jogo/:liga/:id',
       Team: 'time/:liga/:nome',

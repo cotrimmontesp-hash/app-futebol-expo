@@ -63,6 +63,17 @@ export default function HomeScreen() {
           </Pressable>
           <Pressable
             style={styles.card}
+            onPress={() => navigation.navigate('MyTeams')}
+            accessibilityRole="button"
+            testID="my-teams-entry"
+          >
+            <Text style={styles.cardTitle}>Meus times</Text>
+            <Text style={styles.cardSub}>
+              {count === 0 ? 'Favorite um time para vê-lo aqui' : 'Próximos jogos e últimos resultados'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.card}
             onPress={() => navigation.navigate('Favorites')}
             accessibilityRole="button"
           >

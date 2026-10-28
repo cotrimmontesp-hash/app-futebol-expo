@@ -11,7 +11,7 @@ import { Content, Message, Screen, SectionTitle } from '../components/ui';
 import { useFavorites } from '../favorites';
 import { formatDay, formatTime } from '../format';
 import type { RootStackParamList } from '../navigation';
-import { findStanding, findTeam, isSameTeam, lastFinished, nextScheduled, resultMark } from '../teamResults';
+import { findStanding, findTeam, isSameTeam, resultMark, teamSchedule } from '../teamResults';
 import { cardStyle, useTheme, type Palette } from '../theme';
 import type { Competition, Match, MatchesResponse, StandingRow, Standings } from '../types';
 
@@ -87,8 +87,9 @@ export default function TeamScreen() {
   const card = useMemo(() => cardStyle(colors, scheme), [colors, scheme]);
   const team = data ? findTeam(nome, data.standings, data.matches) : { time: nome };
   const place = data ? findStanding(nome, data.standings) : null;
-  const recent = data ? lastFinished(data.matches, nome) : [];
-  const upcoming = data ? nextScheduled(data.matches, nome) : [];
+  const schedule = data ? teamSchedule(data.matches, nome) : null;
+  const recent = schedule?.recent ?? [];
+  const upcoming = schedule?.upcoming ?? [];
 
   return (
     <Screen title={team.time || nome || 'Time'} onBack={back} testID="team-screen">

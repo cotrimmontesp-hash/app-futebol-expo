@@ -57,6 +57,14 @@ export function nextScheduled(matches: MatchesResponse, nome: string): Match[] {
     .slice(0, 5);
 }
 
+/** Os mesmos próximos e últimos jogos que a página do time mostra. */
+export function teamSchedule(matches: MatchesResponse, nome: string): { upcoming: Match[]; recent: Match[] } {
+  return {
+    upcoming: nextScheduled(matches, nome),
+    recent: lastFinished(matches, nome),
+  };
+}
+
 export function findStanding(nome: string, standings: Standings): { grupo: string; row: StandingRow } | null {
   if (standings.semTabela) return null;
   const rows = (standings.grupos || []).flatMap((group) =>

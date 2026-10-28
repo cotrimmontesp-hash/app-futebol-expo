@@ -11,6 +11,7 @@ import { registerServiceWorker } from './src/push/web';
 import CompetitionScreen from './src/screens/CompetitionScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import MyTeamsScreen from './src/screens/MyTeamsScreen';
 import MatchScreen from './src/screens/MatchScreen';
 import TeamScreen from './src/screens/TeamScreen';
 import TodayScreen from './src/screens/TodayScreen';
@@ -59,6 +60,7 @@ export default function App() {
               <Stack.Screen name="Home" component={HomeScreen} />
               <Stack.Screen name="Today" component={TodayScreen} />
               <Stack.Screen name="Favorites" component={FavoritesScreen} />
+              <Stack.Screen name="MyTeams" component={MyTeamsScreen} />
               <Stack.Screen name="Competition" component={CompetitionScreen} />
               <Stack.Screen name="Match" component={MatchScreen} />
               <Stack.Screen name="Team" component={TeamScreen} />
