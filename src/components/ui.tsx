@@ -99,7 +99,7 @@ function createStyles(colors: Palette) {
       paddingBottom: 12,
     },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
-    backHit: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    backHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     back: { color: colors.onButton, fontSize: 34, lineHeight: 34, marginTop: -4 },
     title: { flex: 1, color: colors.onButton, fontSize: 20, fontWeight: '700' },
     body: { flex: 1 },
