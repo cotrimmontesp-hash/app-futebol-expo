@@ -12,6 +12,7 @@ import CompetitionScreen from './src/screens/CompetitionScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import MatchScreen from './src/screens/MatchScreen';
+import TeamScreen from './src/screens/TeamScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import { colors } from './src/theme';
 
@@ -43,6 +44,7 @@ export default function App() {
               <Stack.Screen name="Favorites" component={FavoritesScreen} />
               <Stack.Screen name="Competition" component={CompetitionScreen} />
               <Stack.Screen name="Match" component={MatchScreen} />
+              <Stack.Screen name="Team" component={TeamScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </FavoritesProvider>

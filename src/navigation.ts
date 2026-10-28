@@ -7,6 +7,7 @@ export type RootStackParamList = {
   Favorites: undefined;
   Competition: { id: string };
   Match: { liga: string; id: string };
+  Team: { liga: string; nome: string };
 };
 
 function prefixes(): string[] {
@@ -23,6 +24,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       Favorites: 'favoritos',
       Competition: 'competicao/:id',
       Match: 'jogo/:liga/:id',
+      Team: 'time/:liga/:nome',
     },
   },
 };
