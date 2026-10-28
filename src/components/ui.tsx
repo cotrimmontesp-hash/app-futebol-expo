@@ -1,9 +1,11 @@
-import { useMemo, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { sectionTitleStyle, useTheme, type Palette } from '../theme';
+
+const PULL_TRIGGER_PX = 64;
 
 type ScreenProps = {
   title: string;
@@ -43,14 +45,153 @@ export function Screen({ title, onBack, tabs, children, testID }: ScreenProps) {
   );
 }
 
-export function Content({ children }: { children: ReactNode }) {
+export function Content({
+  children,
+  refreshing = false,
+  onRefresh,
+}: {
+  children: ReactNode;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const styles = useUiStyles();
+  const { colors } = useTheme();
+  const scrollRef = useRef<HTMLElement | null>(null);
+  const onRefreshRef = useRef(onRefresh);
+  const refreshingRef = useRef(refreshing);
+  const [pulling, setPulling] = useState<'idle' | 'ready' | 'armed'>('idle');
+  onRefreshRef.current = onRefresh;
+  refreshingRef.current = refreshing;
+  const webPull = Platform.OS === 'web' && !!onRefresh;
+
+  useEffect(() => {
+    if (!webPull) return undefined;
+    const node = scrollRef.current;
+    if (!node?.addEventListener) return undefined;
+    return attachWebPull(node, {
+      isRefreshing: () => refreshingRef.current,
+      onRefresh: () => onRefreshRef.current?.(),
+      onPullChange: (distance) => {
+        const next = distance >= PULL_TRIGGER_PX ? 'armed' : distance > 12 ? 'ready' : 'idle';
+        setPulling((current) => (current === next ? current : next));
+      },
+    });
+  }, [webPull]);
+
+  const showPullHint = webPull && (refreshing || pulling !== 'idle');
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}>
+    <ScrollView
+      ref={(node) => {
+        scrollRef.current = node as unknown as HTMLElement | null;
+      }}
+      style={[styles.scroll, webPull ? ({ overscrollBehaviorY: 'contain' } as ViewStyle) : null]}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+      refreshControl={
+        onRefresh && Platform.OS !== 'web' ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.link}
+            colors={[colors.link]}
+            progressBackgroundColor={colors.card}
+          />
+        ) : undefined
+      }
+    >
+      {showPullHint ? (
+        <Text style={styles.pullHint} accessibilityLiveRegion={refreshing ? 'polite' : 'none'}>
+          {refreshing || pulling === 'armed' ? 'Atualizando…' : 'Puxe para atualizar'}
+        </Text>
+      ) : null}
       {children}
       <Text style={styles.footer}>Dados: ESPN (API pública). Horários de Brasília.</Text>
     </ScrollView>
+  );
+}
+
+function attachWebPull(
+  node: HTMLElement,
+  handlers: {
+    isRefreshing: () => boolean;
+    onRefresh: () => void;
+    onPullChange: (distance: number) => void;
+  },
+): () => void {
+  let pointerId: number | null = null;
+  let startY = 0;
+  let distance = 0;
+
+  const finish = (event: PointerEvent) => {
+    if (pointerId === null || event.pointerId !== pointerId) return;
+    pointerId = null;
+    const triggered = distance >= PULL_TRIGGER_PX && !handlers.isRefreshing();
+    distance = 0;
+    handlers.onPullChange(0);
+    if (triggered) handlers.onRefresh();
+  };
+
+  const onDown = (event: PointerEvent) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (handlers.isRefreshing() || node.scrollTop > 1) return;
+    pointerId = event.pointerId;
+    startY = event.clientY;
+    distance = 0;
+  };
+
+  const onMove = (event: PointerEvent) => {
+    if (pointerId === null || event.pointerId !== pointerId) return;
+    if (node.scrollTop > 1) {
+      distance = 0;
+      handlers.onPullChange(0);
+      return;
+    }
+    const dy = event.clientY - startY;
+    if (dy <= 0) {
+      if (distance !== 0) {
+        distance = 0;
+        handlers.onPullChange(0);
+      }
+      return;
+    }
+    distance = Math.min(dy, 96);
+    handlers.onPullChange(distance);
+    if (dy > 8 && event.cancelable) event.preventDefault();
+  };
+
+  node.addEventListener('pointerdown', onDown, true);
+  node.addEventListener('pointermove', onMove, { capture: true, passive: false });
+  node.addEventListener('pointerup', finish, true);
+  node.addEventListener('pointercancel', finish, true);
+  return () => {
+    node.removeEventListener('pointerdown', onDown, true);
+    node.removeEventListener('pointermove', onMove, true);
+    node.removeEventListener('pointerup', finish, true);
+    node.removeEventListener('pointercancel', finish, true);
+  };
+}
+
+export function QuietNote({
+  text,
+  tone = 'muted',
+  live = false,
+  testID,
+}: {
+  text: string;
+  tone?: 'muted' | 'warning';
+  live?: boolean;
+  testID?: string;
+}) {
+  const styles = useUiStyles();
+  return (
+    <Text
+      testID={testID}
+      accessibilityLiveRegion={live ? 'polite' : 'none'}
+      style={[styles.quiet, tone === 'warning' && styles.quietWarn]}
+    >
+      {text}
+    </Text>
   );
 }
 
@@ -105,6 +246,24 @@ function createStyles(colors: Palette) {
     body: { flex: 1 },
     scroll: { flex: 1 },
     content: { padding: 12 },
+    pullHint: {
+      textAlign: 'center',
+      color: colors.muted,
+      fontSize: 15,
+      lineHeight: 22,
+      paddingBottom: 8,
+    },
+    quiet: {
+      textAlign: 'center',
+      color: colors.muted,
+      fontSize: 15,
+      lineHeight: 22,
+      paddingHorizontal: 12,
+      paddingTop: 4,
+      paddingBottom: 8,
+      fontVariant: ['tabular-nums'],
+    },
+    quietWarn: { color: colors.warning, fontWeight: '600' },
     footer: { textAlign: 'center', color: colors.muted, fontSize: 12, paddingTop: 8, paddingBottom: 8 },
     message: { alignItems: 'center', paddingHorizontal: 16, paddingVertical: 28 },
     messageText: { color: colors.muted, textAlign: 'center', fontSize: 16 },

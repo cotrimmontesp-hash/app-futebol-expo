@@ -34,9 +34,19 @@ export function errorMessage(error: unknown): string {
   return 'Erro';
 }
 
+export function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60_000);
+  const external = init?.signal;
+  const onExternalAbort = () => controller.abort();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener('abort', onExternalAbort);
+  }
   try {
     const response = await fetch(`${apiOrigin()}/api/${path.replace(/^\//, '')}`, {
       ...init,
@@ -45,12 +55,17 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
         ...(init?.headers ?? {}),
       },
-      signal: init?.signal ?? controller.signal,
+      signal: controller.signal,
     });
     const data = (await response.json().catch(() => ({}))) as { erro?: string };
     if (!response.ok) throw new ApiError(data.erro || `Erro ${response.status}`);
     return data as T;
   } catch (error) {
+    if (external?.aborted) {
+      const abort = new Error('aborted');
+      abort.name = 'AbortError';
+      throw abort;
+    }
     if (error instanceof ApiError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiError('A consulta demorou demais.');
@@ -58,6 +73,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(error instanceof Error ? error.message : 'Erro');
   } finally {
     clearTimeout(timer);
+    external?.removeEventListener('abort', onExternalAbort);
   }
 }
 
@@ -96,8 +112,8 @@ export function loadMatches(id: string): Promise<MatchesResponse> {
 }
 
 /** Jogos de um dia civil em Brasília. Sem o campo `data` na resposta, o servidor ainda é o antigo. */
-export function loadToday(date: string): Promise<TodayResponse> {
-  return api<TodayResponse>(`hoje?data=${encodeURIComponent(date)}`);
+export function loadToday(date: string, signal?: AbortSignal): Promise<TodayResponse> {
+  return api<TodayResponse>(`hoje?data=${encodeURIComponent(date)}`, signal ? { signal } : undefined);
 }
 
 export function loadLineup(league: string, eventId: string): Promise<LineupResponse> {
