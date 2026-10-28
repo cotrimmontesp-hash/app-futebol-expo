@@ -95,8 +95,9 @@ export function loadMatches(id: string): Promise<MatchesResponse> {
   return api<MatchesResponse>(`${id}/jogos`);
 }
 
-export function loadToday(): Promise<TodayResponse> {
-  return api<TodayResponse>('hoje');
+/** Jogos de um dia civil em Brasília. Sem o campo `data` na resposta, o servidor ainda é o antigo. */
+export function loadToday(date: string): Promise<TodayResponse> {
+  return api<TodayResponse>(`hoje?data=${encodeURIComponent(date)}`);
 }
 
 export function loadLineup(league: string, eventId: string): Promise<LineupResponse> {
