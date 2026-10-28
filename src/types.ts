@@ -64,6 +64,8 @@ export type MatchesResponse = {
 export type TodayResponse = {
   jogos: Match[];
   atualizadoEm?: string;
+  /** Dia consultado (YYYY-MM-DD). Ausente no servidor antigo, que ignora `?data=`. */
+  data?: string;
 };
 
 export type Scorer = TeamRef & {
