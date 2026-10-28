@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme';
+import { useTheme, type Palette } from '../theme';
 import type { ResultMark } from '../teamResults';
 
 const LABEL: Record<ResultMark, string> = {
@@ -9,13 +10,18 @@ const LABEL: Record<ResultMark, string> = {
   D: 'Derrota',
 };
 
-const FILL: Record<ResultMark, string> = {
-  V: colors.green,
-  E: '#555555',
-  D: colors.error,
-};
+export const FORM_DOT = 18;
+export const FORM_DOT_LATEST = 22;
+export const FORM_GAP = 3;
 
 export function FormDots({ marks }: { marks: ResultMark[] }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const fill: Record<ResultMark, string> = {
+    V: colors.formV,
+    E: colors.formE,
+    D: colors.formD,
+  };
   if (!marks.length) return null;
   const latest = marks.length - 1;
   return (
@@ -26,7 +32,7 @@ export function FormDots({ marks }: { marks: ResultMark[] }) {
           accessible
           accessibilityRole="image"
           accessibilityLabel={LABEL[mark]}
-          style={[styles.dot, index === latest && styles.dotLatest, { backgroundColor: FILL[mark] }]}
+          style={[styles.dot, index === latest && styles.dotLatest, { backgroundColor: fill[mark] }]}
           testID={`form-dot-${mark}`}
         >
           <Text
@@ -43,25 +49,28 @@ export function FormDots({ marks }: { marks: ResultMark[] }) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dotLatest: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-  },
-  letter: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-    lineHeight: 12,
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    row: { flexDirection: 'row', alignItems: 'center', gap: FORM_GAP },
+    dot: {
+      width: FORM_DOT,
+      height: FORM_DOT,
+      borderRadius: FORM_DOT / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dotLatest: {
+      width: FORM_DOT_LATEST,
+      height: FORM_DOT_LATEST,
+      borderRadius: FORM_DOT_LATEST / 2,
+    },
+    letter: {
+      color: colors.formLetter,
+      fontSize: 12,
+      fontWeight: '800',
+      lineHeight: 14,
+      textAlign: 'center',
+      includeFontPadding: false,
+    },
+  });
+}

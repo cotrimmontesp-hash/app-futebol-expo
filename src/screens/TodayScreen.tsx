@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,7 +8,7 @@ import { MatchList } from '../components/MatchList';
 import { Content, Message, Screen, SectionTitle } from '../components/ui';
 import { useFavorites } from '../favorites';
 import type { RootStackParamList } from '../navigation';
-import { colors } from '../theme';
+import { useTheme, type Palette } from '../theme';
 import type { Match, TodayResponse } from '../types';
 
 type TodayFilter = 'todos' | 'aovivo';
@@ -96,6 +96,7 @@ export default function TodayScreen() {
     }, [attempt, migrate]),
   );
 
+  const styles = useTodayStyles();
   const back = () => {
     if (navigation.canGoBack()) navigation.goBack();
     else navigation.navigate('Home');
@@ -171,6 +172,7 @@ function FilterTab({
   testID: string;
   onPress: () => void;
 }) {
+  const styles = useTodayStyles();
   return (
     <Pressable
       testID={testID}
@@ -185,16 +187,23 @@ function FilterTab({
   );
 }
 
-const styles = StyleSheet.create({
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#dde2df',
-  },
-  tab: { flex: 1, alignItems: 'center', paddingTop: 10, paddingHorizontal: 8 },
-  tabText: { textAlign: 'center', color: colors.muted, fontWeight: '600', fontSize: 14, minHeight: 20 },
-  tabTextOn: { color: colors.green },
-  underline: { height: 3, alignSelf: 'stretch', marginTop: 8, backgroundColor: 'transparent' },
-  underlineOn: { backgroundColor: colors.green },
-});
+function useTodayStyles() {
+  const { colors } = useTheme();
+  return useMemo(() => createStyles(colors), [colors]);
+}
+
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    tabs: {
+      flexDirection: 'row',
+      backgroundColor: colors.tabBg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.tabBorder,
+    },
+    tab: { flex: 1, alignItems: 'center', paddingTop: 10, paddingHorizontal: 8 },
+    tabText: { textAlign: 'center', color: colors.muted, fontWeight: '600', fontSize: 14, minHeight: 20 },
+    tabTextOn: { color: colors.link },
+    underline: { height: 3, alignSelf: 'stretch', marginTop: 8, backgroundColor: 'transparent' },
+    underlineOn: { backgroundColor: colors.link },
+  });
+}

@@ -1,10 +1,11 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { formatDay, formatTime } from '../format';
 import type { RootStackParamList } from '../navigation';
-import { card, colors } from '../theme';
+import { cardStyle, useTheme, type Palette } from '../theme';
 import type { Match } from '../types';
 import { Crest } from './Crest';
 import { StarButton } from './StarButton';
@@ -18,6 +19,8 @@ type Props = {
 };
 
 export function MatchList({ matches, leagueId, hideDay }: Props) {
+  const { colors, scheme } = useTheme();
+  const card = useMemo(() => cardStyle(colors, scheme), [colors, scheme]);
   const groups: { day: string; items: Match[] }[] = [];
   if (hideDay) {
     if (matches.length) groups.push({ day: '', items: matches });
@@ -53,6 +56,7 @@ export function MatchList({ matches, leagueId, hideDay }: Props) {
 
 function MatchRow({ match, leagueId, divider }: { match: Match; leagueId?: string; divider: boolean }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const styles = useMatchStyles();
   const liga = match.liga || leagueId || '';
   const open = () => {
     if (!liga) return;
@@ -98,6 +102,7 @@ function MatchRow({ match, leagueId, divider }: { match: Match; leagueId?: strin
 }
 
 function Score({ match }: { match: Match }) {
+  const styles = useMatchStyles();
   if (match.estado === 'pre') {
     return <Text style={styles.time}>{formatTime(match.data)}</Text>;
   }
@@ -116,21 +121,28 @@ function Score({ match }: { match: Match }) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { paddingHorizontal: 8, paddingVertical: 8 },
-  divider: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  line: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  side: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  sideAway: { justifyContent: 'flex-end' },
-  teamHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0, alignSelf: 'stretch' },
-  name: { flex: 1, fontSize: 14, color: colors.text },
-  nameAway: { textAlign: 'right' },
-  winner: { fontWeight: '700' },
-  scoreHit: { minWidth: 72, alignItems: 'center', justifyContent: 'center' },
-  score: { alignItems: 'center' },
-  scoreText: { fontWeight: '700', fontSize: 16, color: colors.text },
-  time: { fontWeight: '700', fontSize: 15, color: colors.green },
-  meta: { fontSize: 11, color: colors.muted, marginTop: 1 },
-  live: { color: colors.live, fontSize: 11, fontWeight: '700', marginTop: 1 },
-  info: { textAlign: 'center', color: colors.muted, fontSize: 12, marginTop: 4 },
-});
+function useMatchStyles() {
+  const { colors } = useTheme();
+  return useMemo(() => createStyles(colors), [colors]);
+}
+
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    row: { paddingHorizontal: 8, paddingVertical: 8 },
+    divider: { borderBottomWidth: 1, borderBottomColor: colors.line },
+    line: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    side: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+    sideAway: { justifyContent: 'flex-end' },
+    teamHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0, alignSelf: 'stretch' },
+    name: { flex: 1, fontSize: 14, color: colors.text },
+    nameAway: { textAlign: 'right' },
+    winner: { fontWeight: '700' },
+    scoreHit: { minWidth: 84, alignItems: 'center', justifyContent: 'center' },
+    score: { alignItems: 'center' },
+    scoreText: { fontWeight: '700', fontSize: 16, color: colors.text },
+    time: { fontWeight: '700', fontSize: 15, color: colors.link },
+    meta: { fontSize: 12, color: colors.muted, marginTop: 1 },
+    live: { color: colors.live, fontSize: 12, fontWeight: '700', marginTop: 1 },
+    info: { textAlign: 'center', color: colors.muted, fontSize: 12, marginTop: 4 },
+  });
+}

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,7 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { errorMessage, loadCompetitions } from '../api';
 import { useFavorites } from '../favorites';
 import type { RootStackParamList } from '../navigation';
-import { colors } from '../theme';
+import { useTheme, type Palette, type Scheme } from '../theme';
 import type { Competition } from '../types';
 import { Content, Message, Screen, SectionTitle } from '../components/ui';
 
@@ -34,6 +34,7 @@ export default function HomeScreen() {
     }, [attempt]),
   );
 
+  const styles = useHomeStyles();
   const count = names.size;
   const summary = count === 0 ? 'Nenhum time marcado' : count === 1 ? [...names][0] : `${count} times`;
   const leagues = (list || []).filter((item) => item.tipo === 'liga');
@@ -85,6 +86,7 @@ function Group({
   items: Competition[];
   onOpen: (id: string) => void;
 }) {
+  const styles = useHomeStyles();
   if (!items.length) return null;
   return (
     <View>
@@ -99,23 +101,32 @@ function Group({
   );
 }
 
-const styles = StyleSheet.create({
-  highlight: {
-    backgroundColor: colors.green,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 8,
-  },
-  highlightTitle: { color: colors.white, fontSize: 17, fontWeight: '700' },
-  highlightSub: { color: colors.highlightText, fontSize: 13, marginTop: 2 },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 8,
-  },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
-  cardSub: { color: colors.muted, fontSize: 13, marginTop: 2 },
-});
+function useHomeStyles() {
+  const { colors, scheme } = useTheme();
+  return useMemo(() => createStyles(colors, scheme), [colors, scheme]);
+}
+
+function createStyles(colors: Palette, scheme: Scheme) {
+  return StyleSheet.create({
+    highlight: {
+      backgroundColor: colors.header,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 8,
+    },
+    highlightTitle: { color: colors.onButton, fontSize: 17, fontWeight: '700' },
+    highlightSub: { color: colors.highlight, fontSize: 14, marginTop: 2 },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 8,
+      borderWidth: scheme === 'dark' ? 1 : 0,
+      borderColor: colors.line,
+    },
+    cardTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+    cardSub: { color: colors.muted, fontSize: 14, marginTop: 2 },
+  });
+}

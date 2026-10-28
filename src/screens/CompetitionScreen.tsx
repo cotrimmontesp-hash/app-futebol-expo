@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,7 +10,7 @@ import { Scorers } from '../components/Scorers';
 import { Standings } from '../components/Standings';
 import { Content, Message, Screen } from '../components/ui';
 import type { RootStackParamList } from '../navigation';
-import { colors } from '../theme';
+import { useTheme, type Palette } from '../theme';
 import type { Competition, MatchesResponse, Scorers as ScorersData, Standings as StandingsData, TabId } from '../types';
 
 const TABS: { id: TabId; label: string }[] = [
@@ -112,6 +112,7 @@ export default function CompetitionScreen() {
     }, [id, tab, attempt]),
   );
 
+  const styles = useCompetitionStyles();
   const visibleTabs = TABS.filter((item) => item.id !== 'artilheiros' || !hideScorers);
   const back = () => {
     if (navigation.canGoBack()) navigation.goBack();
@@ -176,16 +177,23 @@ export default function CompetitionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#dde2df',
-  },
-  tab: { flex: 1, alignItems: 'center', paddingTop: 10, paddingHorizontal: 2 },
-  tabText: { textAlign: 'center', color: colors.muted, fontWeight: '600', fontSize: 12, minHeight: 32 },
-  tabTextOn: { color: colors.green },
-  underline: { height: 3, alignSelf: 'stretch', marginTop: 6, backgroundColor: 'transparent' },
-  underlineOn: { backgroundColor: colors.green },
-});
+function useCompetitionStyles() {
+  const { colors } = useTheme();
+  return useMemo(() => createStyles(colors), [colors]);
+}
+
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    tabs: {
+      flexDirection: 'row',
+      backgroundColor: colors.tabBg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.tabBorder,
+    },
+    tab: { flex: 1, alignItems: 'center', paddingTop: 10, paddingHorizontal: 2 },
+    tabText: { textAlign: 'center', color: colors.muted, fontWeight: '600', fontSize: 12, lineHeight: 16, minHeight: 32 },
+    tabTextOn: { color: colors.link },
+    underline: { height: 3, alignSelf: 'stretch', marginTop: 6, backgroundColor: 'transparent' },
+    underlineOn: { backgroundColor: colors.link },
+  });
+}

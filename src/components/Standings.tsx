@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState, type ComponentRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef, type RefObject } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { loadMatches } from '../api';
 import { useFavorites } from '../favorites';
-import { recentForm, type ResultMark } from '../teamResults';
-import { card, colors } from '../theme';
+import { recentForm } from '../teamResults';
+import { cardFade, cardStyle, useTheme, type Palette } from '../theme';
 import type { MatchesResponse, StandingGroup, StandingRow, Standings as StandingsData } from '../types';
 import { Crest } from './Crest';
-import { FormDots } from './FormDots';
+import { FORM_DOT, FORM_DOT_LATEST, FORM_GAP, FormDots } from './FormDots';
 import { StarButton } from './StarButton';
 import { TeamLink } from './TeamLink';
 import { Message, SectionTitle } from './ui';
@@ -30,6 +30,9 @@ const STATS: { key: keyof StandingRow; label: string; width: number; bold?: bool
 
 export function Standings({ data, leagueId }: { data: StandingsData; leagueId?: string }) {
   const { migrate } = useFavorites();
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const card = useMemo(() => cardStyle(colors, scheme), [colors, scheme]);
   const groups = data.grupos || [];
   const empty = data.semTabela || !groups.length || groups.every((group) => !group.linhas.length);
   const matches = useLeagueMatches(empty ? undefined : leagueId);
@@ -90,6 +93,10 @@ function GroupTable({
   leagueId?: string;
   matches: MatchesResponse | null;
 }) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const card = useMemo(() => cardStyle(colors, scheme), [colors, scheme]);
+  const fade = useMemo(() => cardFade(colors), [colors]);
   const forms = group.linhas.map((row) => (matches && row.time ? recentForm(matches, row.time) : []));
   const showForm = forms.some((marks) => marks.length > 0);
   const formWidth = Math.max(0, ...forms.map((marks) => dotsWidth(marks.length)));
@@ -185,7 +192,7 @@ function GroupTable({
         {edge.more ? (
           <LinearGradient
             pointerEvents="none"
-            colors={['rgba(255,255,255,0)', colors.white]}
+            colors={fade}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={styles.fade}
@@ -198,10 +205,7 @@ function GroupTable({
 
 function dotsWidth(count: number): number {
   if (count <= 0) return 0;
-  const gap = 3;
-  const dot = 16;
-  const latest = 20;
-  return (count - 1) * (dot + gap) + latest;
+  return (count - 1) * (FORM_DOT + FORM_GAP) + FORM_DOT_LATEST;
 }
 
 function scrollHost(ref: ComponentRef<typeof ScrollView> | null): HTMLElement | null {
@@ -288,63 +292,64 @@ function useLeagueMatches(leagueId?: string): MatchesResponse | null {
   return matches;
 }
 
-const webScroller = Platform.OS === 'web'
-  ? ({ scrollbarWidth: 'thin', scrollbarColor: '#c5cdc8 transparent', cursor: 'grab' } as object)
-  : null;
-
-const styles = StyleSheet.create({
-  table: { flexDirection: 'row', alignItems: 'flex-start' },
-  fixed: { width: FIXED_WIDTH },
-  scrollWrap: { flex: 1, minWidth: 0, position: 'relative' },
-  scroller: { width: '100%', flexGrow: 0, minWidth: 0, ...(webScroller ?? {}) },
-  scrollContent: { paddingRight: 10 },
-  head: {
-    height: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  fixedHead: { borderLeftWidth: 4, borderLeftColor: 'transparent' },
-  fixedRow: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    borderLeftWidth: 4,
-  },
-  scrollRow: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  cell: { textAlign: 'center', color: colors.muted, fontSize: 11, fontWeight: '600' },
-  pos: { width: 32 },
-  teamHead: { flex: 1, textAlign: 'left', paddingLeft: 8 },
-  posValue: { width: 32, textAlign: 'center', fontSize: 13, color: colors.text },
-  team: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0 },
-  teamHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, alignSelf: 'stretch' },
-  teamName: { flex: 1, fontSize: 13, color: colors.text },
-  num: { textAlign: 'center', fontSize: 13, color: colors.text },
-  bold: { fontWeight: '700' },
-  formHead: { textAlign: 'center' },
-  formCell: { alignItems: 'flex-end', justifyContent: 'center' },
-  divider: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: '#d5dbd8',
-    zIndex: 2,
-  },
-  fade: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 28, zIndex: 2 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  swatch: { width: 10, height: 10, borderRadius: 2 },
-  legendText: { color: '#4b5550', fontSize: 12 },
-  hint: { color: colors.muted, fontSize: 12, textAlign: 'center', paddingHorizontal: 8, paddingBottom: 8 },
-});
+function createStyles(colors: Palette) {
+  const webScroller = Platform.OS === 'web'
+    ? ({ scrollbarWidth: 'thin', scrollbarColor: `${colors.scrollbar} transparent`, cursor: 'grab' } as object)
+    : null;
+  return StyleSheet.create({
+    table: { flexDirection: 'row', alignItems: 'flex-start' },
+    fixed: { width: FIXED_WIDTH },
+    scrollWrap: { flex: 1, minWidth: 0, position: 'relative' },
+    scroller: { width: '100%', flexGrow: 0, minWidth: 0, ...(webScroller ?? {}) },
+    scrollContent: { paddingRight: 10 },
+    head: {
+      height: 32,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.line,
+    },
+    fixedHead: { borderLeftWidth: 4, borderLeftColor: 'transparent' },
+    fixedRow: {
+      height: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.line,
+      borderLeftWidth: 4,
+    },
+    scrollRow: {
+      height: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.line,
+    },
+    cell: { textAlign: 'center', color: colors.muted, fontSize: 12, fontWeight: '600' },
+    pos: { width: 32 },
+    teamHead: { flex: 1, textAlign: 'left', paddingLeft: 8 },
+    posValue: { width: 32, textAlign: 'center', fontSize: 14, color: colors.text },
+    team: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0 },
+    teamHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, alignSelf: 'stretch' },
+    teamName: { flex: 1, fontSize: 14, color: colors.text },
+    num: { textAlign: 'center', fontSize: 14, color: colors.text },
+    bold: { fontWeight: '700' },
+    formHead: { textAlign: 'center' },
+    formCell: { alignItems: 'flex-end', justifyContent: 'center' },
+    divider: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 1,
+      backgroundColor: colors.divider,
+      zIndex: 2,
+    },
+    fade: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 28, zIndex: 2 },
+    legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    swatch: { width: 10, height: 10, borderRadius: 2 },
+    legendText: { color: colors.muted, fontSize: 12 },
+    hint: { color: colors.muted, fontSize: 12, textAlign: 'center', paddingHorizontal: 8, paddingBottom: 8 },
+  });
+}
