@@ -32,16 +32,20 @@ function allMatches(matches: MatchesResponse): Match[] {
   return list;
 }
 
-export function lastFinished(matches: MatchesResponse, nome: string): Match[] {
+function finishedFor(matches: MatchesResponse, nome: string, limit: number): Match[] {
   return allMatches(matches)
     .filter((match) => match.estado === 'post' && involves(match, nome))
     .sort((a, b) => b.data.localeCompare(a.data))
-    .slice(0, 5);
+    .slice(0, limit);
 }
 
-/** Últimos jogos finalizados, do mais antigo ao mais recente (o mais recente fica à direita). */
+export function lastFinished(matches: MatchesResponse, nome: string): Match[] {
+  return finishedFor(matches, nome, 5);
+}
+
+/** Jogos finalizados já carregados, do mais antigo ao mais recente, no máximo 10. */
 export function recentForm(matches: MatchesResponse, nome: string): ResultMark[] {
-  return lastFinished(matches, nome)
+  return finishedFor(matches, nome, 10)
     .map((match) => resultMark(match, nome))
     .reverse();
 }

@@ -17,6 +17,7 @@ const FILL: Record<ResultMark, string> = {
 
 export function FormDots({ marks }: { marks: ResultMark[] }) {
   if (!marks.length) return null;
+  const latest = marks.length - 1;
   return (
     <View style={styles.row} testID="recent-form">
       {marks.map((mark, index) => (
@@ -25,7 +26,7 @@ export function FormDots({ marks }: { marks: ResultMark[] }) {
           accessible
           accessibilityRole="image"
           accessibilityLabel={LABEL[mark]}
-          style={[styles.dot, { backgroundColor: FILL[mark] }]}
+          style={[styles.dot, index === latest && styles.dotLatest, { backgroundColor: FILL[mark] }]}
           testID={`form-dot-${mark}`}
         >
           <Text
@@ -45,11 +46,16 @@ export function FormDots({ marks }: { marks: ResultMark[] }) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dotLatest: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
   letter: {
     color: '#ffffff',
