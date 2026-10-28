@@ -8,6 +8,7 @@ import { card, colors } from '../theme';
 import type { Match } from '../types';
 import { Crest } from './Crest';
 import { StarButton } from './StarButton';
+import { TeamLink } from './TeamLink';
 import { SectionTitle } from './ui';
 
 type Props = {
@@ -61,36 +62,38 @@ function MatchRow({ match, leagueId, divider }: { match: Match; leagueId?: strin
   const label = `${match.casa.time} contra ${match.fora.time}`;
 
   return (
-    <View style={[styles.row, divider && styles.divider]}>
+    <Pressable
+      style={[styles.row, divider && styles.divider]}
+      onPress={open}
+      disabled={!liga}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <View style={styles.line}>
         <View style={styles.side}>
-          <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={label} style={styles.teamHit}>
+          <TeamLink liga={liga} team={match.casa} style={styles.teamHit}>
             <Crest uri={match.casa.escudo} name={match.casa.time} />
             <Text numberOfLines={1} style={[styles.name, match.casa.venceu && styles.winner]}>
               {match.casa.time}
             </Text>
-          </Pressable>
+          </TeamLink>
           <StarButton team={match.casa} />
         </View>
-        <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={label} style={styles.scoreHit}>
+        <View style={styles.scoreHit}>
           <Score match={match} />
-        </Pressable>
+        </View>
         <View style={[styles.side, styles.sideAway]}>
           <StarButton team={match.fora} />
-          <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={label} style={styles.teamHit}>
+          <TeamLink liga={liga} team={match.fora} style={styles.teamHit}>
             <Text numberOfLines={1} style={[styles.name, styles.nameAway, match.fora.venceu && styles.winner]}>
               {match.fora.time}
             </Text>
             <Crest uri={match.fora.escudo} name={match.fora.time} />
-          </Pressable>
+          </TeamLink>
         </View>
       </View>
-      {info ? (
-        <Pressable onPress={open}>
-          <Text style={styles.info}>{info}</Text>
-        </Pressable>
-      ) : null}
-    </View>
+      {info ? <Text style={styles.info}>{info}</Text> : null}
+    </Pressable>
   );
 }
 
@@ -119,7 +122,7 @@ const styles = StyleSheet.create({
   line: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   side: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   sideAway: { justifyContent: 'flex-end' },
-  teamHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  teamHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0, alignSelf: 'stretch' },
   name: { flex: 1, fontSize: 14, color: colors.text },
   nameAway: { textAlign: 'right' },
   winner: { fontWeight: '700' },

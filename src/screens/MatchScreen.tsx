@@ -8,6 +8,7 @@ import { errorMessage, loadLineup } from '../api';
 import { Crest } from '../components/Crest';
 import { Pitch } from '../components/Pitch';
 import { StarButton } from '../components/StarButton';
+import { TeamLink } from '../components/TeamLink';
 import { Content, Message, Screen, SectionTitle } from '../components/ui';
 import { useFavorites } from '../favorites';
 import type { RootStackParamList } from '../navigation';
@@ -84,9 +85,9 @@ export default function MatchScreen() {
       {data ? (
         <Content>
           <Events events={data.lances || []} />
-          <Stats stats={data.estatisticas} />
+          <Stats stats={data.estatisticas} liga={liga} />
           {data.divulgada ? (
-            <Lineups teams={data.times || []} />
+            <Lineups teams={data.times || []} liga={liga} />
           ) : (
             <Message text="Escalação ainda não divulgada (sai cerca de 1 hora antes do jogo)." />
           )}
@@ -122,15 +123,15 @@ function EventMark({ tipo }: { tipo: string }) {
   return <View style={styles.markSlot} />;
 }
 
-function Stats({ stats }: { stats: MatchStats | null }) {
+function Stats({ stats, liga }: { stats: MatchStats | null; liga: string }) {
   if (!stats?.linhas?.length) return null;
   return (
     <View style={card} testID="stats">
       <SectionTitle>Estatísticas</SectionTitle>
       <View style={styles.stat}>
-        <StatSide team={stats.casa} align="left" />
+        <StatSide team={stats.casa} align="left" liga={liga} />
         <Text style={styles.statLabel}> </Text>
-        <StatSide team={stats.fora} align="right" />
+        <StatSide team={stats.fora} align="right" liga={liga} />
       </View>
       {stats.linhas.map((line) => (
         <View key={line.rotulo} style={styles.stat}>
@@ -143,29 +144,29 @@ function Stats({ stats }: { stats: MatchStats | null }) {
   );
 }
 
-function StatSide({ team, align }: { team: MatchStats['casa']; align: 'left' | 'right' }) {
+function StatSide({ team, align, liga }: { team: MatchStats['casa']; align: 'left' | 'right'; liga: string }) {
   const away = align === 'right';
   return (
-    <View style={[styles.statSide, away && styles.statSideRight]}>
+    <TeamLink liga={liga} team={team} style={[styles.statSide, away && styles.statSideRight]}>
       {away ? null : <Crest uri={team.escudo} name={team.time} />}
       <Text numberOfLines={1} style={styles.statTeam}>
         {team.time}
       </Text>
       {away ? <Crest uri={team.escudo} name={team.time} /> : null}
-    </View>
+    </TeamLink>
   );
 }
 
-function Lineups({ teams }: { teams: LineupTeam[] }) {
+function Lineups({ teams, liga }: { teams: LineupTeam[]; liga: string }) {
   if (teams.length > 1) {
     const home = placePlayers(teams[0].formacao, teams[0].titulares, 'cima');
     const away = placePlayers(teams[1].formacao, teams[1].titulares, 'baixo');
     if (home && away) {
       return (
         <View style={card}>
-          <TeamHead team={teams[0]} />
+          <TeamHead team={teams[0]} liga={liga} />
           <Pitch points={[...home, ...away]} />
-          <TeamHead team={teams[1]} />
+          <TeamHead team={teams[1]} liga={liga} />
           <PlayerList title={`Reservas · ${teams[0].time}`} players={teams[0].reservas} />
           <PlayerList title={`Reservas · ${teams[1].time}`} players={teams[1].reservas} />
         </View>
@@ -178,7 +179,7 @@ function Lineups({ teams }: { teams: LineupTeam[] }) {
         const points = placePlayers(team.formacao, team.titulares);
         return (
           <View key={team.time} style={card}>
-            <TeamHead team={team} />
+            <TeamHead team={team} liga={liga} />
             {points ? <Pitch points={points} /> : <PlayerList title="Titulares" players={team.titulares} />}
             <PlayerList title="Reservas" players={team.reservas} />
           </View>
@@ -188,14 +189,16 @@ function Lineups({ teams }: { teams: LineupTeam[] }) {
   );
 }
 
-function TeamHead({ team }: { team: LineupTeam }) {
+function TeamHead({ team, liga }: { team: LineupTeam; liga: string }) {
   return (
     <View style={styles.teamHead}>
       <StarButton team={team} />
-      <Crest uri={team.escudo} name={team.time} />
-      <Text numberOfLines={1} style={styles.teamName}>
-        {team.time}
-      </Text>
+      <TeamLink liga={liga} team={team} style={styles.teamOpen}>
+        <Crest uri={team.escudo} name={team.time} />
+        <Text numberOfLines={1} style={styles.teamName}>
+          {team.time}
+        </Text>
+      </TeamLink>
       {team.formacao ? <Text style={styles.formation}>{team.formacao}</Text> : null}
     </View>
   );
@@ -256,6 +259,7 @@ const styles = StyleSheet.create({
   statSideRight: { justifyContent: 'flex-end' },
   statTeam: { fontWeight: '600', fontSize: 13, color: colors.text, flexShrink: 1 },
   teamHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 12 },
+  teamOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, alignSelf: 'stretch' },
   teamName: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.text },
   formation: { marginLeft: 'auto', fontWeight: '700', color: colors.muted },
   listTitle: {

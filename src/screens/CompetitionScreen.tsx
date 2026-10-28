@@ -150,7 +150,7 @@ export default function CompetitionScreen() {
       ) : null}
       {payload ? (
         <Content>
-          {payload.kind === 'tabela' ? <Standings data={payload.data} /> : null}
+          {payload.kind === 'tabela' ? <Standings data={payload.data} leagueId={id} /> : null}
           {payload.kind === 'resultados' ? (
             payload.data.length ? (
               <View testID="results">

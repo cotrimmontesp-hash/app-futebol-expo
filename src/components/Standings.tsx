@@ -6,9 +6,10 @@ import { card, colors } from '../theme';
 import type { StandingRow, Standings as StandingsData } from '../types';
 import { Crest } from './Crest';
 import { StarButton } from './StarButton';
+import { TeamLink } from './TeamLink';
 import { Message, SectionTitle } from './ui';
 
-export function Standings({ data }: { data: StandingsData }) {
+export function Standings({ data, leagueId }: { data: StandingsData; leagueId?: string }) {
   const { migrate } = useFavorites();
   const { width } = useWindowDimensions();
   const showExtra = width > 420;
@@ -43,7 +44,7 @@ export function Standings({ data }: { data: StandingsData }) {
           <View style={card}>
             <Header showExtra={showExtra} />
             {group.linhas.map((row) => (
-              <Row key={`${row.pos}-${row.time}`} row={row} showExtra={showExtra} />
+              <Row key={`${row.pos}-${row.time}`} row={row} showExtra={showExtra} leagueId={leagueId} />
             ))}
           </View>
         </View>
@@ -80,16 +81,18 @@ function Header({ showExtra }: { showExtra: boolean }) {
   );
 }
 
-function Row({ row, showExtra }: { row: StandingRow; showExtra: boolean }) {
+function Row({ row, showExtra, leagueId }: { row: StandingRow; showExtra: boolean; leagueId?: string }) {
   return (
     <View style={styles.line}>
       <Text style={[styles.posValue, { borderLeftColor: row.nota?.cor || 'transparent' }]}>{row.pos ?? ''}</Text>
       <View style={styles.team}>
         <StarButton team={row} />
-        <Crest uri={row.escudo} name={row.time} />
-        <Text numberOfLines={1} style={styles.teamName}>
-          {row.time}
-        </Text>
+        <TeamLink liga={leagueId} team={row} style={styles.teamHit}>
+          <Crest uri={row.escudo} name={row.time} />
+          <Text numberOfLines={1} style={styles.teamName}>
+            {row.time}
+          </Text>
+        </TeamLink>
       </View>
       <Text style={[styles.num, styles.ptsValue]}>{row.pts}</Text>
       <Text style={styles.num}>{row.j}</Text>
@@ -132,6 +135,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   team: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0 },
+  teamHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0, alignSelf: 'stretch' },
   teamName: { flex: 1, fontSize: 13, color: colors.text },
   num: { width: 24, textAlign: 'center', fontSize: 13, color: colors.text },
   ptsValue: { width: 28, fontWeight: '700' },
