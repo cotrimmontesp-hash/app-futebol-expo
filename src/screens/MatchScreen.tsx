@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,7 +13,7 @@ import { Content, Message, Screen, SectionTitle } from '../components/ui';
 import { useFavorites } from '../favorites';
 import type { RootStackParamList } from '../navigation';
 import { placePlayers } from '../pitch';
-import { card, colors } from '../theme';
+import { cardStyle, useTheme, type Palette } from '../theme';
 import type { LineupPlayer, LineupResponse, LineupTeam, MatchEvent, MatchStats } from '../types';
 
 export default function MatchScreen() {
@@ -98,6 +98,7 @@ export default function MatchScreen() {
 }
 
 function Events({ events }: { events: MatchEvent[] }) {
+  const { card, styles } = useMatchChrome();
   if (!events.length) return null;
   return (
     <View style={card} testID="lances">
@@ -114,6 +115,7 @@ function Events({ events }: { events: MatchEvent[] }) {
 }
 
 function EventMark({ tipo }: { tipo: string }) {
+  const { styles } = useMatchChrome();
   if (tipo === 'gol' || tipo === 'gol-contra' || tipo === 'penalti') return <View style={styles.goal} />;
   if (tipo === 'penalti-perdido') return <Text style={styles.miss}>×</Text>;
   if (tipo === 'amarelo') return <View style={styles.yellow} />;
@@ -124,6 +126,7 @@ function EventMark({ tipo }: { tipo: string }) {
 }
 
 function Stats({ stats, liga }: { stats: MatchStats | null; liga: string }) {
+  const { card, styles } = useMatchChrome();
   if (!stats?.linhas?.length) return null;
   return (
     <View style={card} testID="stats">
@@ -145,6 +148,7 @@ function Stats({ stats, liga }: { stats: MatchStats | null; liga: string }) {
 }
 
 function StatSide({ team, align, liga }: { team: MatchStats['casa']; align: 'left' | 'right'; liga: string }) {
+  const { styles } = useMatchChrome();
   const away = align === 'right';
   return (
     <TeamLink liga={liga} team={team} style={[styles.statSide, away && styles.statSideRight]}>
@@ -158,6 +162,7 @@ function StatSide({ team, align, liga }: { team: MatchStats['casa']; align: 'lef
 }
 
 function Lineups({ teams, liga }: { teams: LineupTeam[]; liga: string }) {
+  const { card } = useMatchChrome();
   if (teams.length > 1) {
     const home = placePlayers(teams[0].formacao, teams[0].titulares, 'cima');
     const away = placePlayers(teams[1].formacao, teams[1].titulares, 'baixo');
@@ -190,6 +195,7 @@ function Lineups({ teams, liga }: { teams: LineupTeam[]; liga: string }) {
 }
 
 function TeamHead({ team, liga }: { team: LineupTeam; liga: string }) {
+  const { styles } = useMatchChrome();
   return (
     <View style={styles.teamHead}>
       <StarButton team={team} />
@@ -205,6 +211,7 @@ function TeamHead({ team, liga }: { team: LineupTeam; liga: string }) {
 }
 
 function PlayerList({ title, players }: { title: string; players: LineupPlayer[] }) {
+  const { styles } = useMatchChrome();
   if (!players.length) return null;
   return (
     <View>
@@ -224,66 +231,75 @@ function PlayerList({ title, players }: { title: string; players: LineupPlayer[]
   );
 }
 
-const styles = StyleSheet.create({
-  event: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
-  minute: { width: 56, fontWeight: '700', color: colors.green, fontVariant: ['tabular-nums'] },
-  eventText: { flex: 1, color: colors.text, fontSize: 15 },
-  goal: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.text, marginTop: 2 },
-  yellow: { width: 12, height: 16, borderRadius: 1, backgroundColor: colors.yellow, marginTop: 2, marginLeft: 2 },
-  red: { width: 12, height: 16, borderRadius: 1, backgroundColor: colors.redCard, marginTop: 2, marginLeft: 2 },
-  miss: { width: 18, textAlign: 'center', color: colors.miss, fontWeight: '800', fontSize: 16 },
-  sub: { width: 18, textAlign: 'center', color: colors.green, fontWeight: '800', fontSize: 16 },
-  varMark: { width: 28, color: colors.varBlue, fontWeight: '800', fontSize: 10, marginTop: 3 },
-  markSlot: { width: 18 },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
-  statValue: { flex: 1, fontWeight: '700', color: colors.text },
-  statLeft: { textAlign: 'right' },
-  statLabel: { color: colors.muted, fontSize: 12, textAlign: 'center' },
-  statSide: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
-  statSideRight: { justifyContent: 'flex-end' },
-  statTeam: { fontWeight: '600', fontSize: 13, color: colors.text, flexShrink: 1 },
-  teamHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 12 },
-  teamOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, alignSelf: 'stretch' },
-  teamName: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.text },
-  formation: { marginLeft: 'auto', fontWeight: '700', color: colors.muted },
-  listTitle: {
-    marginTop: 12,
-    marginBottom: 4,
-    marginHorizontal: 12,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: colors.muted,
-  },
-  player: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
-  shirt: { width: 26, fontWeight: '700', color: colors.green },
-  position: { width: 36, fontSize: 12, color: colors.muted },
-  playerName: { flex: 1, color: colors.text, fontSize: 15 },
-  out: { color: colors.out, fontWeight: '700', fontSize: 12 },
-  entered: { color: colors.green, fontWeight: '700', fontSize: 12 },
-});
+function useMatchChrome() {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const card = useMemo(() => cardStyle(colors, scheme), [colors, scheme]);
+  return { card, styles };
+}
+
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    event: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+    },
+    minute: { width: 56, fontWeight: '700', fontSize: 14, color: colors.link, fontVariant: ['tabular-nums'] },
+    eventText: { flex: 1, color: colors.text, fontSize: 15 },
+    goal: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.text, marginTop: 2 },
+    yellow: { width: 12, height: 16, borderRadius: 1, backgroundColor: colors.yellow, marginTop: 2, marginLeft: 2 },
+    red: { width: 12, height: 16, borderRadius: 1, backgroundColor: colors.redCard, marginTop: 2, marginLeft: 2 },
+    miss: { width: 18, textAlign: 'center', color: colors.miss, fontWeight: '800', fontSize: 16 },
+    sub: { width: 18, textAlign: 'center', color: colors.link, fontWeight: '800', fontSize: 16 },
+    varMark: { width: 36, color: colors.varBlue, fontWeight: '800', fontSize: 12, marginTop: 2 },
+    markSlot: { width: 18 },
+    stat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+    },
+    statValue: { flex: 1, fontWeight: '700', fontSize: 14, color: colors.text },
+    statLeft: { textAlign: 'right' },
+    statLabel: { color: colors.muted, fontSize: 12, textAlign: 'center' },
+    statSide: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+    statSideRight: { justifyContent: 'flex-end' },
+    statTeam: { fontWeight: '600', fontSize: 14, color: colors.text, flexShrink: 1 },
+    teamHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 12 },
+    teamOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, alignSelf: 'stretch' },
+    teamName: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.text },
+    formation: { marginLeft: 'auto', fontWeight: '700', fontSize: 14, color: colors.muted },
+    listTitle: {
+      marginTop: 12,
+      marginBottom: 4,
+      marginHorizontal: 12,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+      color: colors.muted,
+    },
+    player: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+    },
+    shirt: { width: 26, fontWeight: '700', fontSize: 14, color: colors.link },
+    position: { width: 36, fontSize: 12, color: colors.muted },
+    playerName: { flex: 1, color: colors.text, fontSize: 15 },
+    out: { color: colors.out, fontWeight: '700', fontSize: 12 },
+    entered: { color: colors.link, fontWeight: '700', fontSize: 12 },
+  });
+}

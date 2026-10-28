@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Platform, StyleSheet } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,25 +14,42 @@ import HomeScreen from './src/screens/HomeScreen';
 import MatchScreen from './src/screens/MatchScreen';
 import TeamScreen from './src/screens/TeamScreen';
 import TodayScreen from './src/screens/TodayScreen';
-import { colors } from './src/theme';
+import { applyWebDocument, useTheme } from './src/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const theme = {
-  ...DefaultTheme,
-  colors: { ...DefaultTheme.colors, background: colors.bg },
-};
-
 export default function App() {
+  const { scheme, colors } = useTheme();
+
   useEffect(() => {
     if (Platform.OS === 'web') void registerServiceWorker();
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') applyWebDocument(scheme, colors);
+  }, [scheme, colors]);
+
+  const navigationTheme = useMemo(() => {
+    const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        background: colors.bg,
+        card: colors.card,
+        text: colors.text,
+        border: colors.line,
+        primary: colors.link,
+        notification: colors.live,
+      },
+    };
+  }, [scheme, colors]);
+
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.bg }]}>
       <SafeAreaProvider>
         <FavoritesProvider>
-          <NavigationContainer theme={theme} linking={linking}>
+          <NavigationContainer theme={navigationTheme} linking={linking}>
             <Stack.Navigator
               screenOptions={{
                 headerShown: false,
@@ -54,5 +71,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
 });

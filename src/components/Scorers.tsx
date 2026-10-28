@@ -1,15 +1,19 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { card, colors } from '../theme';
+import { cardStyle, useTheme, type Palette } from '../theme';
 import type { Scorer, Scorers as ScorersData } from '../types';
 import { Crest } from './Crest';
 import { SectionTitle } from './ui';
 
 export function Scorers({ data }: { data: ScorersData }) {
+  const { colors, scheme } = useTheme();
+  const card = useMemo(() => cardStyle(colors, scheme), [colors, scheme]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View testID="scorers">
-      <Block title="Gols" rows={data.gols || []} field="gols" column="Gols" />
-      <Block title="Assistências" rows={data.assistencias || []} field="assistencias" column="A" />
+      <Block title="Gols" rows={data.gols || []} field="gols" column="Gols" card={card} styles={styles} />
+      <Block title="Assistências" rows={data.assistencias || []} field="assistencias" column="A" card={card} styles={styles} />
     </View>
   );
 }
@@ -19,11 +23,15 @@ function Block({
   rows,
   field,
   column,
+  card,
+  styles,
 }: {
   title: string;
   rows: Scorer[];
   field: 'gols' | 'assistencias';
   column: string;
+  card: ReturnType<typeof cardStyle>;
+  styles: ReturnType<typeof createStyles>;
 }) {
   if (!rows.length) return null;
   return (
@@ -59,17 +67,19 @@ function Block({
   );
 }
 
-const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.line },
-  head: { width: 36, textAlign: 'center', color: colors.muted, fontSize: 12, fontWeight: '600', paddingVertical: 8 },
-  pos: { width: 36, textAlign: 'center', color: colors.text, paddingVertical: 8 },
-  playerHead: { flex: 1, textAlign: 'left', paddingLeft: 4 },
-  valueHead: { width: 52, fontWeight: '700' },
-  line: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.line },
-  player: { flex: 1, minWidth: 0, paddingVertical: 8, paddingRight: 8 },
-  name: { fontWeight: '600', color: colors.text, fontSize: 15 },
-  club: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  clubName: { flex: 1, color: colors.muted, fontSize: 12 },
-  num: { width: 36, textAlign: 'center', color: colors.text },
-  value: { width: 52, textAlign: 'center', fontWeight: '700', color: colors.text },
-});
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    header: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.line },
+    head: { width: 36, textAlign: 'center', color: colors.muted, fontSize: 12, fontWeight: '600', paddingVertical: 8 },
+    pos: { width: 36, textAlign: 'center', color: colors.text, fontSize: 14, paddingVertical: 8 },
+    playerHead: { flex: 1, textAlign: 'left', paddingLeft: 4 },
+    valueHead: { width: 52, fontWeight: '700' },
+    line: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.line },
+    player: { flex: 1, minWidth: 0, paddingVertical: 8, paddingRight: 8 },
+    name: { fontWeight: '600', color: colors.text, fontSize: 15 },
+    club: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+    clubName: { flex: 1, color: colors.muted, fontSize: 12 },
+    num: { width: 36, textAlign: 'center', color: colors.text, fontSize: 14 },
+    value: { width: 52, textAlign: 'center', fontWeight: '700', color: colors.text, fontSize: 14 },
+  });
+}

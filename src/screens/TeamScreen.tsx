@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,7 +12,7 @@ import { useFavorites } from '../favorites';
 import { formatDay, formatTime } from '../format';
 import type { RootStackParamList } from '../navigation';
 import { findStanding, findTeam, isSameTeam, lastFinished, nextScheduled, resultMark } from '../teamResults';
-import { card, colors } from '../theme';
+import { cardStyle, useTheme, type Palette } from '../theme';
 import type { Competition, Match, MatchesResponse, StandingRow, Standings } from '../types';
 
 type TeamData = {
@@ -82,6 +82,9 @@ export default function TeamScreen() {
     else navigation.navigate('Home');
   };
 
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const card = useMemo(() => cardStyle(colors, scheme), [colors, scheme]);
   const team = data ? findTeam(nome, data.standings, data.matches) : { time: nome };
   const place = data ? findStanding(nome, data.standings) : null;
   const recent = data ? lastFinished(data.matches, nome) : [];
@@ -111,13 +114,13 @@ export default function TeamScreen() {
 
           <View testID="team-classification">
             <SectionTitle>Classificação</SectionTitle>
-            {place ? <Classification place={place} /> : <Message text="Sem dados." />}
+            {place ? <Classification place={place} card={card} styles={styles} fallback={colors.muted} /> : <Message text="Sem dados." />}
           </View>
 
           <View testID="team-results">
             <SectionTitle>Últimos resultados</SectionTitle>
             {recent.length ? (
-              <GameList matches={recent} nome={nome} liga={liga} finished />
+              <GameList matches={recent} nome={nome} liga={liga} finished card={card} styles={styles} />
             ) : (
               <Message text="Sem dados." />
             )}
@@ -126,7 +129,7 @@ export default function TeamScreen() {
           <View testID="team-fixtures">
             <SectionTitle>Próximos jogos</SectionTitle>
             {upcoming.length ? (
-              <GameList matches={upcoming} nome={nome} liga={liga} finished={false} />
+              <GameList matches={upcoming} nome={nome} liga={liga} finished={false} card={card} styles={styles} />
             ) : (
               <Message text="Sem dados." />
             )}
@@ -137,7 +140,17 @@ export default function TeamScreen() {
   );
 }
 
-function Classification({ place }: { place: Place }) {
+function Classification({
+  place,
+  card,
+  styles,
+  fallback,
+}: {
+  place: Place;
+  card: ReturnType<typeof cardStyle>;
+  styles: ReturnType<typeof createStyles>;
+  fallback: string;
+}) {
   const lines = [
     { label: 'Posição', value: place.row.pos == null ? '–' : String(place.row.pos) },
     { label: 'Pontos', value: place.row.pts },
@@ -158,7 +171,7 @@ function Classification({ place }: { place: Place }) {
       ))}
       {place.row.nota ? (
         <View style={styles.nota}>
-          <View style={[styles.swatch, { backgroundColor: place.row.nota.cor || colors.muted }]} />
+          <View style={[styles.swatch, { backgroundColor: place.row.nota.cor || fallback }]} />
           <Text style={styles.notaText}>{place.row.nota.texto}</Text>
         </View>
       ) : null}
@@ -171,11 +184,15 @@ function GameList({
   nome,
   liga,
   finished,
+  card,
+  styles,
 }: {
   matches: Match[];
   nome: string;
   liga: string;
   finished: boolean;
+  card: ReturnType<typeof cardStyle>;
+  styles: ReturnType<typeof createStyles>;
 }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
@@ -212,7 +229,7 @@ function GameList({
                   <>
                     <Text style={styles.score}>{score}</Text>
                     {penalties ? <Text style={styles.meta}>{penalties}</Text> : null}
-                    {mark ? <ResultBadge mark={mark} /> : null}
+                    {mark ? <ResultBadge mark={mark} styles={styles} /> : null}
                   </>
                 ) : (
                   <Text style={styles.kickoff}>{formatTime(match.data)}</Text>
@@ -232,7 +249,7 @@ function GameList({
   );
 }
 
-function ResultBadge({ mark }: { mark: 'V' | 'E' | 'D' }) {
+function ResultBadge({ mark, styles }: { mark: 'V' | 'E' | 'D'; styles: ReturnType<typeof createStyles> }) {
   return (
     <View style={[styles.badge, mark === 'V' && styles.badgeV, mark === 'E' && styles.badgeE, mark === 'D' && styles.badgeD]}>
       <Text style={[styles.badgeText, mark === 'V' && styles.badgeTextV, mark === 'E' && styles.badgeTextE, mark === 'D' && styles.badgeTextD]}>
@@ -242,66 +259,68 @@ function ResultBadge({ mark }: { mark: 'V' | 'E' | 'D' }) {
   );
 }
 
-const styles = StyleSheet.create({
-  headerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-  },
-  headerText: { flex: 1, minWidth: 0 },
-  headerName: { fontSize: 20, fontWeight: '700', color: colors.text },
-  headerComp: { color: colors.muted, fontSize: 13, marginTop: 2 },
-  group: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 4, fontWeight: '700', color: colors.text, fontSize: 15 },
-  statLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  statDivider: { borderTopWidth: 1, borderTopColor: colors.line },
-  statLabel: { color: colors.muted, fontSize: 15 },
-  statValue: { color: colors.text, fontWeight: '700', fontSize: 16, fontVariant: ['tabular-nums'] },
-  nota: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
-  swatch: { width: 10, height: 10, borderRadius: 2 },
-  notaText: { color: '#4b5550', fontSize: 13, flex: 1 },
-  game: { paddingHorizontal: 8, paddingVertical: 8 },
-  gameDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  day: { color: colors.muted, fontSize: 12, marginBottom: 4 },
-  line: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
-  sideAway: { justifyContent: 'flex-end' },
-  name: { flex: 1, fontSize: 14, color: colors.text },
-  nameAway: { textAlign: 'right' },
-  selfName: { fontWeight: '700' },
-  center: { minWidth: 76, alignItems: 'center', justifyContent: 'center' },
-  score: { fontWeight: '700', fontSize: 16, color: colors.text },
-  kickoff: { fontWeight: '700', fontSize: 15, color: colors.green },
-  meta: { fontSize: 11, color: colors.muted, marginTop: 1 },
-  badge: {
-    marginTop: 2,
-    minWidth: 22,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { fontSize: 11, fontWeight: '800' },
-  badgeV: { backgroundColor: '#e5f4ec' },
-  badgeE: { backgroundColor: '#f4f1e4' },
-  badgeD: { backgroundColor: '#fdecea' },
-  badgeTextV: { color: colors.green },
-  badgeTextE: { color: '#6b5a20' },
-  badgeTextD: { color: colors.error },
-});
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    headerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+    },
+    headerText: { flex: 1, minWidth: 0 },
+    headerName: { fontSize: 20, fontWeight: '700', color: colors.text },
+    headerComp: { color: colors.muted, fontSize: 14, marginTop: 2 },
+    group: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 4, fontWeight: '700', color: colors.text, fontSize: 15 },
+    statLine: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    statDivider: { borderTopWidth: 1, borderTopColor: colors.line },
+    statLabel: { color: colors.muted, fontSize: 15 },
+    statValue: { color: colors.text, fontWeight: '700', fontSize: 16, fontVariant: ['tabular-nums'] },
+    nota: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+    },
+    swatch: { width: 10, height: 10, borderRadius: 2 },
+    notaText: { color: colors.muted, fontSize: 14, flex: 1 },
+    game: { paddingHorizontal: 8, paddingVertical: 8 },
+    gameDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
+    day: { color: colors.muted, fontSize: 12, marginBottom: 4 },
+    line: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+    sideAway: { justifyContent: 'flex-end' },
+    name: { flex: 1, fontSize: 14, color: colors.text },
+    nameAway: { textAlign: 'right' },
+    selfName: { fontWeight: '700' },
+    center: { minWidth: 76, alignItems: 'center', justifyContent: 'center' },
+    score: { fontWeight: '700', fontSize: 16, color: colors.text },
+    kickoff: { fontWeight: '700', fontSize: 15, color: colors.link },
+    meta: { fontSize: 12, color: colors.muted, marginTop: 1 },
+    badge: {
+      marginTop: 2,
+      minWidth: 22,
+      height: 20,
+      paddingHorizontal: 4,
+      borderRadius: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    badgeText: { fontSize: 12, fontWeight: '800', lineHeight: 14 },
+    badgeV: { backgroundColor: colors.badgeVBg },
+    badgeE: { backgroundColor: colors.badgeEBg },
+    badgeD: { backgroundColor: colors.badgeDBg },
+    badgeTextV: { color: colors.badgeVText },
+    badgeTextE: { color: colors.badgeEText },
+    badgeTextD: { color: colors.badgeDText },
+  });
+}

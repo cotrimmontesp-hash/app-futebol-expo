@@ -1,17 +1,19 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useFavorites } from '../favorites';
 import { NATIVE_PUSH_ENABLED, prepareNativePush } from '../push/native';
 import { disableWebPush, enableWebPush, isWebPushSubscribed, webPushAvailable } from '../push/web';
-import { colors } from '../theme';
+import { useTheme, type Palette } from '../theme';
 
 const NATIVE_NOTE =
   'Notificações no aplicativo instalado ainda não funcionam. Faltam as credenciais Firebase/FCM (Android) e APNs (iOS). O servidor atual só aceita Web Push.';
 
 export function PushBar() {
   const { names } = useFavorites();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [mode, setMode] = useState<'hidden' | 'off' | 'on' | 'native'>('hidden');
   const [note, setNote] = useState('Só avisamos jogos dos times com estrela.');
 
@@ -92,18 +94,20 @@ export function PushBar() {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { marginBottom: 8 },
-  button: {
-    backgroundColor: colors.green,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  buttonOff: { backgroundColor: colors.white, borderWidth: 1, borderColor: '#c5d5cc' },
-  buttonText: { color: colors.white, fontWeight: '700', fontSize: 16 },
-  buttonTextOff: { color: colors.green },
-  note: { textAlign: 'center', color: colors.muted, marginTop: 6, fontSize: 12 },
-  native: { color: colors.muted, textAlign: 'center', marginBottom: 12, fontSize: 13, lineHeight: 18 },
-});
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    wrap: { marginBottom: 8 },
+    button: {
+      backgroundColor: colors.button,
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+    },
+    buttonOff: { backgroundColor: colors.buttonOffBg, borderWidth: 1, borderColor: colors.buttonOffBorder },
+    buttonText: { color: colors.onButton, fontWeight: '700', fontSize: 16 },
+    buttonTextOff: { color: colors.buttonOffText },
+    note: { textAlign: 'center', color: colors.muted, marginTop: 6, fontSize: 12 },
+    native: { color: colors.muted, textAlign: 'center', marginBottom: 12, fontSize: 13, lineHeight: 18 },
+  });
+}

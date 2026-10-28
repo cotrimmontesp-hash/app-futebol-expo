@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import { registerRootComponent } from 'expo';
 
 import App from './App';
+import { installWebSchemeSync } from './src/theme';
 
 // The existing server puts this hash in Web Push payloads (/#/c/{liga}/escalacao/{id}).
 function rewriteLegacyHash(): void {
@@ -25,4 +26,5 @@ function rewriteLegacyHash(): void {
 }
 
 rewriteLegacyHash();
+installWebSchemeSync();
 registerRootComponent(App);
