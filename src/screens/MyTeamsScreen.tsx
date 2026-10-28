@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,11 +6,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { errorMessage, loadCompetitions, loadMatches } from '../api';
 import { Crest } from '../components/Crest';
 import { TeamLink } from '../components/TeamLink';
-import { Content, Message, Screen, SectionTitle } from '../components/ui';
+import { Content, Message, QuietNote, Screen, SectionTitle } from '../components/ui';
 import { useFavorites } from '../favorites';
 import { formatDay, formatTime } from '../format';
 import { favoriteAgenda, type AgendaGame, type LeagueBundle, type TeamNotice } from '../myTeams';
 import type { RootStackParamList } from '../navigation';
+import { STALE_DATA_NOTE, formatUpdatedAt } from '../refresh';
 import { isSameTeam, resultMark } from '../teamResults';
 import { cardStyle, useTheme, type Palette } from '../theme';
 import type { TeamRef } from '../types';
@@ -22,14 +23,31 @@ export default function MyTeamsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const leaguesRef = useRef<LeagueBundle[] | null>(null);
+  const loadRef = useRef<(mode: 'open' | 'manual') => void>(() => setRefreshing(false));
 
   useFocusEffect(
     useCallback(() => {
       if (!ready || names.size === 0) return undefined;
       let alive = true;
-      setLoading(true);
-      setError(null);
-      const run = async () => {
+      let inFlight = false;
+      let follow = false;
+
+      const run = async (mode: 'open' | 'manual') => {
+        if (!alive) return;
+        if (inFlight) {
+          if (mode === 'manual') follow = true;
+          return;
+        }
+        inFlight = true;
+        const keep = leaguesRef.current != null;
+        if (!keep) {
+          setLoading(true);
+          setError(null);
+        }
         try {
           const competitions = await loadCompetitions();
           const lists = await Promise.all(
@@ -55,19 +73,52 @@ export default function MyTeamsScreen() {
                 : [],
             ),
           );
+          leaguesRef.current = lists;
           setLeagues(lists);
+          setError(null);
+          setStale(false);
+          setUpdatedAt(new Date());
         } catch (cause) {
-          if (alive) setError(errorMessage(cause));
+          if (!alive) return;
+          if (!keep) {
+            setError(errorMessage(cause));
+            setStale(false);
+          } else {
+            setStale(true);
+          }
         } finally {
-          if (alive) setLoading(false);
+          inFlight = false;
+          if (!alive) return;
+          if (!keep) setLoading(false);
+          if (follow) {
+            follow = false;
+            void run('manual');
+            return;
+          }
+          setRefreshing((current) => (current ? false : current));
         }
       };
-      void run();
+
+      loadRef.current = (mode) => {
+        void run(mode);
+      };
+      if (!leaguesRef.current) {
+        setLoading(true);
+        setError(null);
+      }
+      void run('open');
       return () => {
         alive = false;
+        loadRef.current = () => setRefreshing(false);
+        setRefreshing(false);
       };
     }, [ready, names.size, attempt, migrate]),
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadRef.current('manual');
+  }, []);
 
   const { colors, scheme } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -87,7 +138,9 @@ export default function MyTeamsScreen() {
 
   return (
     <Screen title="Meus times" onBack={back} testID="my-teams-screen">
-      <Content>
+      <Content refreshing={refreshing} onRefresh={ready && names.size > 0 ? onRefresh : undefined}>
+        {updatedAt && names.size > 0 ? <QuietNote testID="my-teams-updated" text={formatUpdatedAt(updatedAt)} /> : null}
+        {stale ? <QuietNote testID="my-teams-stale" tone="warning" live text={STALE_DATA_NOTE} /> : null}
         {!ready ? (
           <View accessibilityLiveRegion="polite">
             <Message text="Carregando…" />

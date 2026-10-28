@@ -1,14 +1,24 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { AppState, Pressable, StyleSheet, Text, View, type AppStateStatus } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { errorMessage, loadToday } from '../api';
+import { errorMessage, isAbortError, loadToday } from '../api';
 import { MatchList } from '../components/MatchList';
-import { Content, Message, Screen, SectionTitle } from '../components/ui';
+import { Content, Message, QuietNote, Screen, SectionTitle } from '../components/ui';
 import { dateForDay, dayChoices, dayResponseMatches, type DayChoice, type DayId } from '../day';
 import { useFavorites } from '../favorites';
 import type { RootStackParamList } from '../navigation';
+import {
+  STALE_DATA_NOTE,
+  createRefreshGate,
+  formatUpdatedAt,
+  planAfterRefresh,
+  planRefresh,
+  refreshIntervalMs,
+  shouldPauseRefresh,
+  type RefreshKind,
+} from '../refresh';
 import { useTheme, type Palette } from '../theme';
 import type { Match, TodayResponse } from '../types';
 
@@ -63,56 +73,120 @@ export default function TodayScreen() {
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [filter, setFilter] = useState<TodayFilter>('todos');
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [stale, setStale] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const dataRef = useRef<TodayResponse | null>(null);
+  const loadRef = useRef<(kind: RefreshKind) => void>(() => setRefreshing(false));
   const choices = dayChoices();
 
+  // Um relógio só, enquanto esta tela está em foco e o app está visível.
   useFocusEffect(
     useCallback(() => {
-      let alive = true;
-      let timer: ReturnType<typeof setInterval> | null = null;
-      const clear = () => {
-        if (timer) clearInterval(timer);
+      let disposed = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let controller: AbortController | null = null;
+      let hasLive = false;
+      const gate = createRefreshGate(!shouldPauseRefresh(AppState.currentState));
+
+      const clearTimer = () => {
+        if (timer) clearTimeout(timer);
         timer = null;
       };
-      const load = async (silent: boolean) => {
-        const requested = dateForDay(day);
+      const arm = (delayMs: number) => {
+        clearTimer();
+        timer = setTimeout(() => {
+          timer = null;
+          void run('tick');
+        }, delayMs);
+      };
+
+      const run = async (kind: RefreshKind) => {
+        const decision = planRefresh(gate, kind);
+        if (decision !== 'run') return;
+        clearTimer();
+        const current = new AbortController();
+        controller = current;
+        const silent = dataRef.current != null;
+        let delayMs: number | null = null;
         try {
-          const next = await loadToday(requested);
-          if (!alive) return;
+          const requested = dateForDay(day);
+          const next = await loadToday(requested, current.signal);
+          if (disposed || current.signal.aborted) return;
           if (!dayResponseMatches(next.data, requested, day)) {
+            dataRef.current = null;
             setData(null);
             setUnavailable(true);
             setError(null);
-            clear();
-            timer = setInterval(() => {
-              void load(true);
-            }, 5 * 60_000);
+            setStale(false);
+            setUpdatedAt(null);
+            hasLive = false;
+            delayMs = refreshIntervalMs(day, false);
             return;
           }
           const jogos = Array.isArray(next.jogos) ? next.jogos : [];
+          const payload = { ...next, jogos };
+          dataRef.current = payload;
+          hasLive = jogos.some((match) => match.estado === 'in');
           setUnavailable(false);
-          setData({ ...next, jogos });
+          setData(payload);
           setError(null);
+          setStale(false);
+          setUpdatedAt(new Date());
           migrate(jogos.flatMap((match) => [match.casa, match.fora]));
-          clear();
-          const live = jogos.some((match) => match.estado === 'in');
-          timer = setInterval(() => {
-            void load(true);
-          }, live ? 30_000 : 5 * 60_000);
+          delayMs = refreshIntervalMs(day, hasLive);
         } catch (cause) {
-          if (!alive) return;
+          if (disposed || current.signal.aborted || isAbortError(cause)) return;
           if (!silent) {
             setError(errorMessage(cause));
             setData(null);
+            dataRef.current = null;
             setUnavailable(false);
+            setStale(false);
+            delayMs = null;
+          } else {
+            setStale(true);
+            delayMs = refreshIntervalMs(day, hasLive);
           }
         } finally {
-          if (alive && !silent) setLoading(false);
+          if (disposed || current.signal.aborted) return;
+          if (!silent) setLoading(false);
+          const nextPlan = planAfterRefresh(gate, delayMs);
+          if (nextPlan.type === 'again') {
+            void run('resume');
+            return;
+          }
+          setRefreshing((currentValue) => (currentValue ? false : currentValue));
+          if (nextPlan.type === 'wait') arm(nextPlan.delayMs);
         }
       };
-      void load(false);
+
+      loadRef.current = (kind) => {
+        void run(kind);
+      };
+
+      const onAppState = (state: AppStateStatus) => {
+        if (shouldPauseRefresh(state)) {
+          gate.visible = false;
+          clearTimer();
+          return;
+        }
+        const wasHidden = !gate.visible;
+        gate.visible = true;
+        if (wasHidden) void run('resume');
+      };
+
+      const subscription = AppState.addEventListener('change', onAppState);
+      if (gate.visible) void run('open');
+
       return () => {
-        alive = false;
-        clear();
+        disposed = true;
+        gate.visible = false;
+        clearTimer();
+        controller?.abort();
+        subscription.remove();
+        loadRef.current = () => setRefreshing(false);
+        setRefreshing(false);
       };
     }, [attempt, day, migrate]),
   );
@@ -120,11 +194,19 @@ export default function TodayScreen() {
   const selectDay = (next: DayId) => {
     if (next === day) return;
     setDay(next);
+    dataRef.current = null;
     setData(null);
+    setUpdatedAt(null);
+    setStale(false);
     setError(null);
     setUnavailable(false);
     setLoading(true);
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadRef.current('manual');
+  }, []);
 
   const styles = useTodayStyles();
   const back = () => {
@@ -178,6 +260,8 @@ export default function TodayScreen() {
               />
             </View>
           ) : null}
+          {updatedAt ? <QuietNote testID="updated-at" text={formatUpdatedAt(updatedAt)} /> : null}
+          {stale ? <QuietNote testID="refresh-stale" tone="warning" live text={STALE_DATA_NOTE} /> : null}
         </View>
       }
     >
@@ -197,7 +281,7 @@ export default function TodayScreen() {
         </View>
       ) : null}
       {data ? (
-        <Content>
+        <Content refreshing={refreshing} onRefresh={onRefresh}>
           {emptyAll ? (
             <View testID="day-empty" accessibilityLiveRegion="polite">
               <Message text="Sem jogos neste dia." />
